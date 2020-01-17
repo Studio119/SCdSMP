@@ -4,11 +4,10 @@
  * @Last Modified by: Antoine YANG
  * @Last Modified time: 2020-01-16 22:39:10
  */
-import React from 'react';
+import React, { Component } from 'react';
 import $ from 'jquery';
 import MapBox from './react-mapbox/MapBox';
 import Color from './preference/Color';
-import Dragable from './prototypes/Dragable';
 
 
 export interface MapViewProps {
@@ -17,24 +16,22 @@ export interface MapViewProps {
     zoom: number;
     minZoom?: number;
     maxZoom?: number;
-    options?: any;  //L.MapOptions;
+    options?: any;
+    width: number;
+    height: number;
+    style?: React.CSSProperties;
 }
 
-export interface MapViewState {
+export interface MapViewState<T> {
     data: Array<{
-        id: string;
         lng: number;
         lat: number;
-        words: string;
-        day: string;
-        city: string;
-        sentiment: string;
-        class: number;
+        value: T;
     }>;
     sampled: Array<number>;
 }
 
-export class Map extends Dragable<MapViewProps, MapViewState, {}> {
+export class Map extends Component<MapViewProps, MapViewState<null>, {}> {
     private originBounds: Readonly<[[number, number], [number, number]]>
         = [[ 50.55349948549696, 22.86881607932105 ], [ -128.14621384226703, -67.85378615773539 ]];
     private bounds: [[number, number], [number, number]]
@@ -59,20 +56,18 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
         return (
             <div id={ this.props.id }
             style={{
-                position: 'absolute',
-                left: '294px',
-                top: '59px',
-                height: '531px',
-                width: '863.6px',
+                height: `${ this.props.height + 24 }px`,
+                width: `${ this.props.width }px`,
                 background: 'white',
                 border: '1px solid rgb(149,188,239)',
                 fontSize: '12.4px',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                ...this.props.style
             }} >
                 <div
                 style={{
                     height: '24px',
-                    width: '848px',
+                    width: `${ this.props.width }px`,
                     borderBottom: '1px solid rgb(149,188,239)',
                     background: Color.linearGradient([
                         Color.setLightness(Color.Nippon.Berimidori, 0.56),
@@ -93,8 +88,8 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
                 <div
                 id={ this.props.id + ">>" }
                 style={{
-                    height: '506.6px',
-                    width: '865px'
+                    height: `${ this.props.height }px`,
+                    width: `${ this.props.width }px`
                 }} >
                     {
                         this.mounted
@@ -110,12 +105,17 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
                 </div>
                 <div id="scatter"
                 style={{
-                    display: 'unset'
+                    display: 'unset',
+                    position: 'absolute',
+                    pointerEvents: 'none',
+                    left: '0',
+                    top: '24px'
                 }} >
                     {/* 这个画布用于展现全部的点 */}
-                    <canvas key="1" id="map_layer_canvas" ref="canvas" width="867px" height="508.64px" style={{
-                        position: 'relative',
-                        top: '-506px',
+                    <canvas key="1" id="map_layer_canvas" ref="canvas"
+                    width={ `${ this.props.width }px` } height={`${ this.props.height }px`} style={{
+                        position: 'initial',
+                        top: '-100%',
                         pointerEvents: 'none'
                     }} />
                 </div>
@@ -123,11 +123,12 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
         )
     }
 
-    public dragableComponentDidMount(): void {
+    public componentDidMount(): void {
         this.mounted = true;
         this.canvas = document.getElementById("map_layer_canvas") as HTMLCanvasElement;
         this.ctx = this.canvas!.getContext("2d");
         this.ctx!.globalAlpha = 0.8;
+        this.forceUpdate();
     }
 
     public componentDidUpdate(): void {
@@ -138,7 +139,7 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
     }
 
     private redraw(): void {
-        this.ctx!.clearRect(-2, -2, 869, 510.64);
+        this.ctx!.clearRect(-2, -2, this.props.width + 2, this.props.height + 2);
         this.timers.forEach((timer: NodeJS.Timeout) => {
             clearTimeout(timer);
         });
@@ -147,15 +148,9 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
         for (let i: number = 0; i < 100; i++) {
             ready.push([]);
         }
-        this.state.data.forEach((d: {
-            id: string, lng: number, lat: number, words: string,
-        day: string, city: string, sentiment: string}, index: number) => {
+        this.state.data.forEach((d: { lng: number, lat: number, value: null }, index: number) => {
             if (d.lat >= 0 || d.lat < 0 || d.lng >= 0 || d.lng < 0) {
-                ready[index % 100].push([d.lng, d.lat, parseFloat(d.sentiment) < 0
-                                                    ? Color.Nippon.Syozyohi
-                                                    : parseFloat(d.sentiment) > 0
-                                                        ? Color.Nippon.Ruri // Tokiwa
-                                                        : Color.Nippon.Ukonn]);
+                ready[index % 100].push([d.lng, d.lat, Color.Nippon.Ruri]);
             }
         });
         ready.forEach((list: Array<[number, number, string]>, index: number) => {
@@ -182,14 +177,14 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
     }
 
     private fx(d: number): number {
-        return (d - this.bounds[1][0]) / (this.bounds[1][1] - this.bounds[1][0]) * (867 - 2);
+        return (d - this.bounds[1][0]) / (this.bounds[1][1] - this.bounds[1][0]) * (this.props.width - 2);
     }
 
     private fy(d: number): number {
         d = (d - this.bounds[0][0]) / (this.bounds[0][1] - this.bounds[0][0])
             * (this.originBounds[0][1] - this.originBounds[0][0]) + this.originBounds[0][0]
             + 2 * (1 - (this.bounds[0][1] - this.bounds[0][0]) / (this.originBounds[0][1] - this.originBounds[0][0]));
-        return 508.6 * (d * d * (-0.00025304519602050573) - d * 0.01760550015218513 + 1.5344062688366468);
+        return this.props.height * (d * d * (-0.00025304519602050573) - d * 0.01760550015218513 + 1.5344062688366468);
     }
 
     private addPoint(x: number, y: number, style: string): void {
@@ -197,8 +192,8 @@ export class Map extends Dragable<MapViewProps, MapViewState, {}> {
             this.ctx!.fillStyle = style;
             this.lastStyle = style;
         }
-        x = this.fx(x) - 1;
-        y = this.fy(y) - 1;
-        this.ctx!.fillRect(x, y, 2, 2);
+        x = this.fx(x) - 0.5;
+        y = this.fy(y) - 0.5;
+        this.ctx!.fillRect(x, y, 1, 1);
     }
 }
