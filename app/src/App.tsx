@@ -16,7 +16,7 @@ class App extends Component<{}, {}, {}> {
     return (
       <div className="App">
         <TaskQueue<Proxy> ref="DataCenter" control={ proxy } />
-        <Map ref="map" id="map" minZoom={ 4.7 } zoom={ 4.7 } center={[-2.31, 53.56]} width={ 400 } height={ 400 } />
+        <Map ref="map" id="map" minZoom={ 1 } zoom={ 4.7 } center={[-2.31, 53.56]} width={ 400 } height={ 400 } />
       </div>
     );
   }
@@ -24,17 +24,32 @@ class App extends Component<{}, {}, {}> {
   public componentDidMount(): void {
     (this.refs["DataCenter"] as TaskQueue).open("./data/output_area_location.json", (data: CordDict) => {
       proxy.getCordinateByCode = (code: string) => data[code] ? data[code][0] : [0, 0];
-      (this.refs["map"] as Map).setState({
-        data: Object.values(data).map((item: [[number, number]]) => {
-          return {
-            lng: item[0][1],
-            lat: item[0][0],
-            value: null
-          };
-        })
-      });
-      (this.refs["DataCenter"] as TaskQueue).open("./data/ONSPD_NOV_2019_UK.csv", (data: any) => {
-        console.log(data);
+      // (this.refs["map"] as Map).setState({
+      //   data: Object.values(data).map((item: [[number, number]]) => {
+      //     return {
+      //       lng: item[0][1],
+      //       lat: item[0][0],
+      //       value: null
+      //     };
+      //   })
+      // });
+      (window as any)["load"] = (list: Array<string>) => {
+        (this.refs["map"] as Map).setState({
+          data: list.map((code: string) => {
+            return {
+              lng: proxy.getCordinateByCode(code)[0],
+              lat: proxy.getCordinateByCode(code)[1],
+              value: null
+            };
+          })
+        });
+      };
+      (this.refs["DataCenter"] as TaskQueue).open("./data/bulk.csv", (data: Array<{"\"geography code\"": string}>) => {
+        const addrs = data.map((item: {"\"geography code\"": string}) => {
+          return item["\"geography code\""].substring(1, 9);
+        });
+        // console.log(addrs);
+        (window as any)["load"](addrs);
       });
     });
   }

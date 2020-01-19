@@ -166,6 +166,9 @@ class GetRequest {
                 let labelset: Array<string> = [];
                 try {
                     let arrs: Array<string> = data.split('\r\n');
+                    if (arrs.length === 1) {
+                        arrs = data.split('\n');
+                    }
                     arrs.forEach((arr: string, index: number) => {
                         let info: Array<string> = arr.split(',');
                         if (index === 0) {
